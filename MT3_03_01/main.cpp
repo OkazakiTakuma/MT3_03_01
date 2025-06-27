@@ -20,12 +20,21 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Vector3 cameraPosition = {0.0f, 2.500f, -3.600f};
 	Vector3 cameraRotate = {0.7f, 0.0f, 0.0f};
 
-	Vector3 controlpoint[3] = {
-	    {-0.8f, 0.58f, 1.0f},
-	    {1.76f, 1.0f, -0.3f},
-	    {0.94f, -0.7f, 2.3f},
+	Vector3 translates[3] = {
+	    {0.0f, 1.0f, 0.0f}, //  肩
+	    {0.4f, 0.0f, 0.0f}, //  肘
+	    {0.3f, 0.0f, 0.0f}, //  手首
 	};
-	
+	Vector3 rotates[3] = {
+	    {0.0f, 0.0f, -6.0f}, //  肩
+	    {0.0f, 0.0f, -1.4f}, //  肘
+	    {0.0f, 0.0f, 0.0f }, //  手首
+	};
+	Vector3 scales[3] = {
+	    {1.0f, 1.0f, 1.0f}, //  肩
+	    {1.0f, 1.0f, 1.0f}, //  肘
+	    {1.0f, 1.0f, 1.0f}, //  手首
+	};
 
 	// 衝突判定の結果を受け取る箱
 	// キー入力結果を受け取る箱
@@ -92,11 +101,31 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		Matrix4x4 projectionMatrix = MakePerspectiveFovMatrix(0.45f, float(kWindowsWidth) / float(kWindowsHeight), 0.1f, 100.0f);
 		Matrix4x4 wvpMatrix = Multiply(worldMatrix, Multiply(viewMatrix, projectionMatrix));
 		Matrix4x4 viewPortMatrix = MakeViewportMatrix(0, 0, float(kWindowsWidth), float(kWindowsHeight), 0.0f, 1.0f);
+
+		// 肩のローカル座標系
+		Matrix4x4 shoulderLocalMatrix = MakeAffineMatrix(scales[0], rotates[0], translates[0]);
+		// 肩のワールド座標系
+		Matrix4x4 shoulderWorldMatrix = Multiply(worldMatrix, shoulderLocalMatrix);
+		
+
+		// 肘のローカル座標系
+		Matrix4x4 elbowLocalMatrix = MakeAffineMatrix(scales[1], rotates[1], translates[1]);
+		// 肘のワールド座標系
+		Matrix4x4 elbowWorldMatrix = elbowLocalMatrix * shoulderWorldMatrix; // 肩のワールド座標系を基準に肘のローカル座標系を適用
+	
+
+		// 手首のローカル座標系
+		Matrix4x4 wristLocalMatrix = MakeAffineMatrix(scales[2], rotates[2], translates[2]);
+		// 手首のワールド座標系
+		Matrix4x4 wristWorldMatrix = wristLocalMatrix * elbowWorldMatrix; // 肘のワールド座標系を基準に手首のローカル座標系を適用
+		
+
+
+
 		// 衝突判定
 		// 球とOBBの衝突判定
-	
+
 		// 衝突判定
-	
 
 		///
 		/// ↑更新処理ここまで
@@ -109,23 +138,34 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		ImGui::Begin("window");
 		ImGui::DragFloat3("Camera Position", &cameraPosition.x, 0.1f);
 		ImGui::DragFloat3("Camera Rotate", &cameraRotate.x, 0.1f);
-		ImGui::DragFloat3("controlpoint0", &controlpoint[0].x, 0.1f);
-		ImGui::DragFloat3("controlpoint1", &controlpoint[1].x, 0.1f);
-		ImGui::DragFloat3("controlpoint2", &controlpoint[2].x, 0.1f);
+		ImGui::DragFloat3("Sholder Translate", &translates[0].x, 0.1f);
+		ImGui::DragFloat3("Sholder Rotate", &rotates[0].x, 0.1f);
+		ImGui::DragFloat3("Sholder Scale", &scales[1].x, 0.1f);
+		ImGui::DragFloat3("Elbow Translate", &translates[1].x, 0.1f);
+		ImGui::DragFloat3("Elbow Rotate", &rotates[1].x, 0.1f);
+		ImGui::DragFloat3("Elbow Scale", &scales[1].x, 0.1f);
+		ImGui::DragFloat3("Wrist Translate", &translates[2].x, 0.1f);
+		ImGui::DragFloat3("Wrist Rotate", &rotates[2].x, 0.1f);
+		ImGui::DragFloat3("Wrist Scale", &scales[2].x, 0.1f);
 
 		ImGui::End();
 
 		// VectorScreenPrintf(-20, 0, cross, "Cross");
 		DrawGrid(wvpMatrix, viewPortMatrix);
-		DrawBezier(controlpoint[0], controlpoint[1], controlpoint[2], wvpMatrix, viewPortMatrix, BLUE);
-		Sphere point[3] = {
-		    {controlpoint[0], 0.01f},
-		    {controlpoint[1], 0.01f},
-		    {controlpoint[2], 0.01f},
-		};
-		DrawSphere(point[0], wvpMatrix, viewPortMatrix, BLACK);
-		DrawSphere(point[1], wvpMatrix, viewPortMatrix, BLACK);
-		DrawSphere(point[2], wvpMatrix, viewPortMatrix, BLACK);
+		// 肩の位置を球で描画
+		DrawSphere({shoulderWorldMatrix.m[3][0], shoulderWorldMatrix.m[3][1], shoulderWorldMatrix.m[3][2], 0.1f}, wvpMatrix, viewPortMatrix, 0xff0000ff);
+		// 肘の位置を球で描画
+		DrawSphere({elbowWorldMatrix.m[3][0], elbowWorldMatrix.m[3][1], elbowWorldMatrix.m[3][2], 0.1f}, wvpMatrix, viewPortMatrix, 0x0000ffff);
+		// 手首の位置を球で描画
+		DrawSphere({wristWorldMatrix.m[3][0], wristWorldMatrix.m[3][1], wristWorldMatrix.m[3][2], 0.1f}, wvpMatrix, viewPortMatrix, 0x00ff00ff);
+		// 肩から肘までの線を描画
+		Vector3 shoulderPosition = {shoulderWorldMatrix.m[3][0], shoulderWorldMatrix.m[3][1], shoulderWorldMatrix.m[3][2]};
+		Vector3 elbowPosition = {elbowWorldMatrix.m[3][0], elbowWorldMatrix.m[3][1], elbowWorldMatrix.m[3][2]};
+		DrawLine({shoulderPosition, Subtract(elbowPosition, shoulderPosition)}, wvpMatrix, viewPortMatrix, 0xff0000ff);
+		// 肘から手首までの線を描画
+		Vector3 wristPosition = {wristWorldMatrix.m[3][0], wristWorldMatrix.m[3][1], wristWorldMatrix.m[3][2]};
+		DrawLine({elbowPosition, Subtract(wristPosition, elbowPosition)}, wvpMatrix, viewPortMatrix, 0x0000ffff);
+	
 		///
 		/// ↑描画処理ここまで
 		///
